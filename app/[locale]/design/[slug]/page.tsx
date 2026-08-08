@@ -20,7 +20,7 @@ export async function generateMetadata({
   return {
     title: pickLocale(project.titlePt, project.titleEn, locale),
     description: pickLocale(project.descriptionPt, project.descriptionEn, locale),
-    openGraph: { images: [project.bannerImageUrl] },
+    openGraph: { images: [project.coverImageUrl] },
   };
 }
 

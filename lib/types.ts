@@ -29,7 +29,6 @@ export type Project = {
   descriptionPt: string;
   descriptionEn: string;
   coverImageUrl: string;
-  bannerImageUrl: string;
   pdfUrl: string | null;
   pdfPageCount: number | null;
   pdfPageAspectRatio: number | null;

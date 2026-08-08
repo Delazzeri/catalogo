@@ -105,10 +105,7 @@ export function ProjectForm({
         </label>
       </div>
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        <ImageField name="cover" label="Capa" existingUrl={project?.coverImageUrl} />
-        <ImageField name="banner" label="Banner" existingUrl={project?.bannerImageUrl} />
-      </div>
+      <ImageField name="cover" label="Capa" existingUrl={project?.coverImageUrl} />
 
       <PdfField
         name="pdf"

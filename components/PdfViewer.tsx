@@ -65,17 +65,16 @@ function PdfPage({
       if (!container || !canvas) return;
 
       const unscaledViewport = page.getViewport({ scale: 1 });
-      setAspectRatio(unscaledViewport.width / unscaledViewport.height);
+      const realAspectRatio = unscaledViewport.width / unscaledViewport.height;
+      setAspectRatio(realAspectRatio);
 
-      const cssWidth = container.clientWidth;
+      const cssWidth = container.getBoundingClientRect().width;
       const devicePixelRatio = window.devicePixelRatio || 1;
       const scale = (cssWidth / unscaledViewport.width) * devicePixelRatio;
       const viewport = page.getViewport({ scale });
 
       canvas.width = viewport.width;
       canvas.height = viewport.height;
-      canvas.style.width = `${cssWidth}px`;
-      canvas.style.height = `${cssWidth / (unscaledViewport.width / unscaledViewport.height)}px`;
 
       const context = canvas.getContext('2d');
       if (!context) return;
@@ -96,7 +95,7 @@ function PdfPage({
           <PdfPageSkeleton aspectRatio={aspectRatio} />
         </div>
       )}
-      <canvas ref={canvasRef} className="block w-full" />
+      <canvas ref={canvasRef} className="block h-full w-full" />
     </div>
   );
 }
@@ -121,7 +120,8 @@ export function PdfViewer({
       .promise.then((doc) => {
         if (!cancelled) setPdf(doc);
       })
-      .catch(() => {
+      .catch((err) => {
+        console.error('Failed to load PDF', err);
         if (!cancelled) setError(true);
       });
     return () => {
@@ -140,7 +140,7 @@ export function PdfViewer({
   if (!pdf) {
     const skeletonCount = pageCount ?? 1;
     return (
-      <div className="mx-auto flex w-full max-w-4xl flex-col gap-2">
+      <div className="mx-auto flex w-full max-w-4xl flex-col">
         {Array.from({ length: skeletonCount }).map((_, index) => (
           <PdfPageSkeleton key={index} aspectRatio={fallbackAspectRatio} />
         ))}
@@ -149,7 +149,7 @@ export function PdfViewer({
   }
 
   return (
-    <div className="mx-auto flex w-full max-w-4xl flex-col gap-2">
+    <div className="mx-auto flex w-full max-w-4xl flex-col">
       {Array.from({ length: pdf.numPages }).map((_, index) => (
         <PdfPage
           key={index}

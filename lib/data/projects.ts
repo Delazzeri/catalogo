@@ -4,7 +4,7 @@ import type { Project, ProjectType } from '@/lib/types';
 
 const PROJECT_SELECT = `
   id, slug, type, title_pt, title_en, description_pt, description_en,
-  cover_image_url, banner_image_url, pdf_url, pdf_page_count, pdf_page_aspect_ratio,
+  cover_image_url, pdf_url, pdf_page_count, pdf_page_aspect_ratio,
   position, published,
   project_links ( id, label, url, type, position ),
   project_tags ( tags ( id, slug, name_pt, name_en, category, icon_url ) )
@@ -19,7 +19,6 @@ type ProjectRow = {
   description_pt: string | null;
   description_en: string | null;
   cover_image_url: string | null;
-  banner_image_url: string | null;
   pdf_url: string | null;
   pdf_page_count: number | null;
   pdf_page_aspect_ratio: number | null;
@@ -48,7 +47,6 @@ function mapProjectRow(row: ProjectRow): Project {
     descriptionPt: row.description_pt ?? '',
     descriptionEn: row.description_en ?? '',
     coverImageUrl: row.cover_image_url ?? '',
-    bannerImageUrl: row.banner_image_url ?? '',
     pdfUrl: row.pdf_url,
     pdfPageCount: row.pdf_page_count,
     pdfPageAspectRatio: row.pdf_page_aspect_ratio,

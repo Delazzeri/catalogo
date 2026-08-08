@@ -32,7 +32,7 @@ function parseFields(formData: FormData) {
 async function uploadImage(
   supabase: SupabaseServerClient,
   projectId: number,
-  folder: 'cover' | 'banner',
+  folder: 'cover',
   file: File,
 ): Promise<string> {
   const path = `${projectId}/${folder}/${Date.now()}-${file.name}`;
@@ -155,14 +155,11 @@ export async function createProject(
   const projectId = inserted.id as number;
 
   const cover = formData.get('cover') as File | null;
-  const banner = formData.get('banner') as File | null;
   const pdf = formData.get('pdf') as File | null;
 
   const mediaUpdates: Record<string, string | number | null> = {};
   if (cover && cover.size > 0)
     mediaUpdates.cover_image_url = await uploadImage(supabase, projectId, 'cover', cover);
-  if (banner && banner.size > 0)
-    mediaUpdates.banner_image_url = await uploadImage(supabase, projectId, 'banner', banner);
   if (pdf && pdf.size > 0) {
     mediaUpdates.pdf_url = await uploadPdf(supabase, projectId, pdf);
     const pdfMeta = parsePdfMeta(formData, 'pdf');
@@ -213,14 +210,11 @@ export async function updateProject(
   if (updateError) return { error: friendlyError(updateError.message) };
 
   const cover = formData.get('cover') as File | null;
-  const banner = formData.get('banner') as File | null;
   const pdf = formData.get('pdf') as File | null;
 
   const mediaUpdates: Record<string, string | number | null> = {};
   if (cover && cover.size > 0)
     mediaUpdates.cover_image_url = await uploadImage(supabase, id, 'cover', cover);
-  if (banner && banner.size > 0)
-    mediaUpdates.banner_image_url = await uploadImage(supabase, id, 'banner', banner);
   if (pdf && pdf.size > 0) {
     mediaUpdates.pdf_url = await uploadPdf(supabase, id, pdf);
     const pdfMeta = parsePdfMeta(formData, 'pdf');
@@ -242,7 +236,7 @@ export async function updateProject(
 
 async function deleteProjectStorage(projectId: number) {
   const client = createServiceRoleClient();
-  const folders = ['cover', 'banner', 'pdf'] as const;
+  const folders = ['cover', 'pdf'] as const;
   const paths: string[] = [];
 
   for (const folder of folders) {
