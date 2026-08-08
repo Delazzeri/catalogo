@@ -68,13 +68,15 @@ function PdfPage({
       const realAspectRatio = unscaledViewport.width / unscaledViewport.height;
       setAspectRatio(realAspectRatio);
 
-      const cssWidth = container.getBoundingClientRect().width;
+      const cssWidth = container.clientWidth || unscaledViewport.width;
       const devicePixelRatio = window.devicePixelRatio || 1;
       const scale = (cssWidth / unscaledViewport.width) * devicePixelRatio;
       const viewport = page.getViewport({ scale });
 
-      canvas.width = viewport.width;
-      canvas.height = viewport.height;
+      canvas.width = Math.round(viewport.width);
+      canvas.height = Math.round(viewport.height);
+      canvas.style.width = '100%';
+      canvas.style.height = 'auto';
 
       const context = canvas.getContext('2d');
       if (!context) return;
@@ -89,13 +91,13 @@ function PdfPage({
   }, [isVisible, isRendered, pdf, pageNumber]);
 
   return (
-    <div ref={containerRef} className="relative w-full" style={{ aspectRatio: `${aspectRatio}` }}>
-      {!isRendered && (
-        <div className="absolute inset-0">
-          <PdfPageSkeleton aspectRatio={aspectRatio} />
-        </div>
-      )}
-      <canvas ref={canvasRef} className="block h-full w-full" />
+    <div ref={containerRef} className="relative w-full">
+      {!isRendered && <PdfPageSkeleton aspectRatio={aspectRatio} />}
+      <canvas
+        ref={canvasRef}
+        className="block w-full"
+        style={!isRendered ? { display: 'none' } : undefined}
+      />
     </div>
   );
 }

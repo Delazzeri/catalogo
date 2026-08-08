@@ -1,12 +1,13 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useTransition } from 'react';
 import Image from 'next/image';
 import { useLocale } from 'next-intl';
 import { Link } from '@/i18n/navigation';
 import type { Tag, TagCategory } from '@/lib/types';
 import { pickLocale } from '@/lib/localized-field';
 import type { AppLocale } from '@/i18n/routing';
+import { deleteTopicTag } from '@/lib/actions/tags';
 
 type PendingTag = { namePt: string; nameEn: string; category: TagCategory };
 
@@ -14,6 +15,7 @@ function TagCategoryEditor({
   tags,
   selected,
   onToggle,
+  onDelete,
   pending,
   onAddPending,
   locale,
@@ -24,6 +26,7 @@ function TagCategoryEditor({
   tags: Tag[];
   selected: Set<string>;
   onToggle: (id: string) => void;
+  onDelete: (id: string) => void;
   pending: PendingTag[];
   onAddPending: (namePt: string, nameEn: string) => void;
   locale: AppLocale;
@@ -33,6 +36,7 @@ function TagCategoryEditor({
 }) {
   const [newPt, setNewPt] = useState('');
   const [newEn, setNewEn] = useState('');
+  const [isPending, startTransition] = useTransition();
 
   return (
     <div className="flex flex-col gap-3">
@@ -40,15 +44,33 @@ function TagCategoryEditor({
         {tags.map((tag) => {
           const isSelected = selected.has(tag.id);
           return (
-            <button
+            <span
               key={tag.id}
-              type="button"
-              onClick={() => onToggle(tag.id)}
               data-selected={isSelected}
-              className="rounded-full border border-hairline px-3 py-1.5 text-sm text-foreground/70 transition-colors data-[selected=true]:border-accent data-[selected=true]:bg-accent data-[selected=true]:text-white"
+              className="group flex items-center gap-1.5 rounded-full border border-hairline pl-3 pr-1.5 py-1.5 text-sm text-foreground/70 transition-colors data-[selected=true]:border-accent data-[selected=true]:bg-accent data-[selected=true]:text-white"
             >
-              {pickLocale(tag.namePt, tag.nameEn, locale)}
-            </button>
+              <button type="button" onClick={() => onToggle(tag.id)}>
+                {pickLocale(tag.namePt, tag.nameEn, locale)}
+              </button>
+              <button
+                type="button"
+                disabled={isPending}
+                aria-label="Excluir tag"
+                onClick={() => {
+                  if (!confirm('Excluir esta tag de seção? Ela será removida de todos os projetos que a usam.'))
+                    return;
+                  startTransition(() => {
+                    deleteTopicTag(Number(tag.id));
+                    onDelete(tag.id);
+                  });
+                }}
+                className="flex h-4 w-4 items-center justify-center rounded-full text-current/60 hover:bg-black/10 disabled:opacity-50"
+              >
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
+                  <path strokeLinecap="round" d="M6 6l12 12M18 6L6 18" />
+                </svg>
+              </button>
+            </span>
           );
         })}
         {pending.map((tag, index) => (
@@ -146,6 +168,7 @@ export function TagsEditor({
   const locale = useLocale() as AppLocale;
   const [selected, setSelected] = useState<Set<string>>(new Set(initialSelectedIds));
   const [pending, setPending] = useState<PendingTag[]>([]);
+  const [deletedIds, setDeletedIds] = useState<Set<string>>(new Set());
 
   function toggle(id: string) {
     setSelected((prev) => {
@@ -160,7 +183,16 @@ export function TagsEditor({
     setPending((prev) => [...prev, { namePt, nameEn, category }]);
   }
 
-  const topicTags = allTags.filter((tag) => tag.category === 'topic');
+  function deleteTag(id: string) {
+    setDeletedIds((prev) => new Set(prev).add(id));
+    setSelected((prev) => {
+      const next = new Set(prev);
+      next.delete(id);
+      return next;
+    });
+  }
+
+  const topicTags = allTags.filter((tag) => tag.category === 'topic' && !deletedIds.has(tag.id));
   const toolTags = allTags.filter((tag) => tag.category === 'tool');
 
   return (
@@ -173,6 +205,7 @@ export function TagsEditor({
           tags={topicTags}
           selected={selected}
           onToggle={toggle}
+          onDelete={deleteTag}
           pending={pending.filter((tag) => tag.category === 'topic')}
           onAddPending={(pt, en) => addPending(pt, en, 'topic')}
           locale={locale}

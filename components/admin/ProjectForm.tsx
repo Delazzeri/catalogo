@@ -6,7 +6,6 @@ import type { AppLocale } from '@/i18n/routing';
 import { createProject, updateProject, type ProjectFormState } from '@/lib/actions/projects';
 import { slugify } from '@/lib/slugify';
 import { TagsEditor } from './TagsEditor';
-import { LinksEditor } from './LinksEditor';
 import { ImageField } from './ImageField';
 import { PdfField } from './PdfField';
 
@@ -113,16 +112,6 @@ export function ProjectForm({
         existingUrl={project?.pdfUrl}
         existingPageCount={project?.pdfPageCount}
       />
-
-      <div>
-        <p className="mb-2 text-sm font-medium text-foreground/80">Links</p>
-        <LinksEditor
-          initialLinks={
-            project?.links.map((link) => ({ label: link.label, url: link.url, type: link.type })) ??
-            []
-          }
-        />
-      </div>
 
       <TagsEditor allTags={allTags} initialSelectedIds={project?.tags.map((tag) => tag.id) ?? []} />
 

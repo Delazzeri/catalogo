@@ -5,12 +5,7 @@ import { createClient } from '@/lib/supabase/server';
 import { createServiceRoleClient } from '@/lib/supabase/service-role';
 import { redirect } from '@/i18n/navigation';
 import { slugify } from '@/lib/slugify';
-import {
-  projectFieldsSchema,
-  linksArraySchema,
-  newTagsArraySchema,
-  pdfMetaSchema,
-} from '@/lib/validation/project';
+import { projectFieldsSchema, newTagsArraySchema, pdfMetaSchema } from '@/lib/validation/project';
 import type { AppLocale } from '@/i18n/routing';
 
 export type ProjectFormState = { error?: string };
@@ -69,25 +64,7 @@ function parsePdfMeta(formData: FormData, name: string) {
   });
 }
 
-async function syncTagsAndLinks(
-  supabase: SupabaseServerClient,
-  projectId: number,
-  formData: FormData,
-) {
-  const links = linksArraySchema.parse(JSON.parse(String(formData.get('links') || '[]')));
-  await supabase.from('project_links').delete().eq('project_id', projectId);
-  if (links.length > 0) {
-    await supabase.from('project_links').insert(
-      links.map((link, index) => ({
-        project_id: projectId,
-        label: link.label,
-        url: link.url,
-        type: link.type,
-        position: index,
-      })),
-    );
-  }
-
+async function syncTags(supabase: SupabaseServerClient, projectId: number, formData: FormData) {
   const selectedTagIds = JSON.parse(String(formData.get('selectedTagIds') || '[]')) as string[];
   const newTags = newTagsArraySchema.parse(JSON.parse(String(formData.get('newTags') || '[]')));
 
@@ -170,7 +147,7 @@ export async function createProject(
     await supabase.from('projects').update(mediaUpdates).eq('id', projectId);
   }
 
-  await syncTagsAndLinks(supabase, projectId, formData);
+  await syncTags(supabase, projectId, formData);
 
   revalidatePath('/[locale]/admin', 'page');
   revalidatePath('/[locale]/design', 'page');
@@ -225,7 +202,7 @@ export async function updateProject(
     await supabase.from('projects').update(mediaUpdates).eq('id', id);
   }
 
-  await syncTagsAndLinks(supabase, id, formData);
+  await syncTags(supabase, id, formData);
 
   revalidatePath('/[locale]/admin', 'page');
   revalidatePath('/[locale]/design', 'page');

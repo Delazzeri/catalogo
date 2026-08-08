@@ -29,7 +29,7 @@ export function PdfModal({ children, layoutId }: { children: React.ReactNode; la
       {isOpen && (
         <motion.div
           layoutId={layoutId}
-          className="fixed inset-0 z-[60] overflow-y-auto bg-background"
+          className="fixed inset-0 z-[60] overflow-y-auto bg-black/30 backdrop-blur-xl"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}

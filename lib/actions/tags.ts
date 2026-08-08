@@ -142,3 +142,9 @@ export async function deleteToolTag(id: number, locale: AppLocale) {
   revalidateAll();
   return redirect({ href: '/admin/tools', locale });
 }
+
+export async function deleteTopicTag(id: number) {
+  const supabase = await createClient();
+  await supabase.from('tags').delete().eq('id', id).eq('category', 'topic');
+  revalidateAll();
+}

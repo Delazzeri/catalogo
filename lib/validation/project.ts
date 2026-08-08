@@ -14,14 +14,6 @@ export const projectFieldsSchema = z.object({
 
 export type ProjectFields = z.infer<typeof projectFieldsSchema>;
 
-export const linkSchema = z.object({
-  label: z.string().min(1),
-  url: z.string().url(),
-  type: z.enum(['github', 'vercel', 'live_site', 'instagram', 'ebook', 'other']),
-});
-
-export const linksArraySchema = z.array(linkSchema);
-
 export const newTagSchema = z.object({
   namePt: z.string().min(1),
   nameEn: z.string().min(1),
