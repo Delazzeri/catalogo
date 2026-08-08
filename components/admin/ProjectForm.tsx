@@ -8,7 +8,7 @@ import { slugify } from '@/lib/slugify';
 import { TagsEditor } from './TagsEditor';
 import { LinksEditor } from './LinksEditor';
 import { ImageField } from './ImageField';
-import { GalleryField } from './GalleryField';
+import { PdfField } from './PdfField';
 
 const inputClass =
   'rounded-xl border border-hairline bg-surface px-3.5 py-2.5 text-foreground outline-none focus:ring-2 focus:ring-accent';
@@ -110,10 +110,12 @@ export function ProjectForm({
         <ImageField name="banner" label="Banner" existingUrl={project?.bannerImageUrl} />
       </div>
 
-      <div>
-        <p className="mb-2 text-sm font-medium text-foreground/80">Galeria</p>
-        <GalleryField initialImages={project?.images ?? []} />
-      </div>
+      <PdfField
+        name="pdf"
+        label="PDF do projeto"
+        existingUrl={project?.pdfUrl}
+        existingPageCount={project?.pdfPageCount}
+      />
 
       <div>
         <p className="mb-2 text-sm font-medium text-foreground/80">Links</p>

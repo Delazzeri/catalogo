@@ -9,6 +9,7 @@ import {
   projectFieldsSchema,
   linksArraySchema,
   newTagsArraySchema,
+  pdfMetaSchema,
 } from '@/lib/validation/project';
 import type { AppLocale } from '@/i18n/routing';
 
@@ -31,7 +32,7 @@ function parseFields(formData: FormData) {
 async function uploadImage(
   supabase: SupabaseServerClient,
   projectId: number,
-  folder: 'cover' | 'banner' | 'gallery',
+  folder: 'cover' | 'banner',
   file: File,
 ): Promise<string> {
   const path = `${projectId}/${folder}/${Date.now()}-${file.name}`;
@@ -43,6 +44,29 @@ async function uploadImage(
     data: { publicUrl },
   } = supabase.storage.from('project-media').getPublicUrl(path);
   return publicUrl;
+}
+
+async function uploadPdf(
+  supabase: SupabaseServerClient,
+  projectId: number,
+  file: File,
+): Promise<string> {
+  const path = `${projectId}/pdf/${Date.now()}-${file.name}`;
+  const { error } = await supabase.storage
+    .from('project-media')
+    .upload(path, file, { upsert: true });
+  if (error) throw error;
+  const {
+    data: { publicUrl },
+  } = supabase.storage.from('project-media').getPublicUrl(path);
+  return publicUrl;
+}
+
+function parsePdfMeta(formData: FormData, name: string) {
+  return pdfMetaSchema.parse({
+    pageCount: formData.get(`${name}PageCount`) || undefined,
+    aspectRatio: formData.get(`${name}AspectRatio`) || undefined,
+  });
 }
 
 async function syncTagsAndLinks(
@@ -132,23 +156,21 @@ export async function createProject(
 
   const cover = formData.get('cover') as File | null;
   const banner = formData.get('banner') as File | null;
-  const galleryFiles = formData.getAll('galleryFiles') as File[];
+  const pdf = formData.get('pdf') as File | null;
 
-  const imageUpdates: Record<string, string> = {};
+  const mediaUpdates: Record<string, string | number | null> = {};
   if (cover && cover.size > 0)
-    imageUpdates.cover_image_url = await uploadImage(supabase, projectId, 'cover', cover);
+    mediaUpdates.cover_image_url = await uploadImage(supabase, projectId, 'cover', cover);
   if (banner && banner.size > 0)
-    imageUpdates.banner_image_url = await uploadImage(supabase, projectId, 'banner', banner);
-  if (Object.keys(imageUpdates).length > 0) {
-    await supabase.from('projects').update(imageUpdates).eq('id', projectId);
+    mediaUpdates.banner_image_url = await uploadImage(supabase, projectId, 'banner', banner);
+  if (pdf && pdf.size > 0) {
+    mediaUpdates.pdf_url = await uploadPdf(supabase, projectId, pdf);
+    const pdfMeta = parsePdfMeta(formData, 'pdf');
+    mediaUpdates.pdf_page_count = pdfMeta.pageCount ?? null;
+    mediaUpdates.pdf_page_aspect_ratio = pdfMeta.aspectRatio ?? null;
   }
-
-  for (const file of galleryFiles) {
-    if (file.size === 0) continue;
-    const url = await uploadImage(supabase, projectId, 'gallery', file);
-    await supabase
-      .from('project_images')
-      .insert({ project_id: projectId, image_url: url, position: 0 });
+  if (Object.keys(mediaUpdates).length > 0) {
+    await supabase.from('projects').update(mediaUpdates).eq('id', projectId);
   }
 
   await syncTagsAndLinks(supabase, projectId, formData);
@@ -192,25 +214,21 @@ export async function updateProject(
 
   const cover = formData.get('cover') as File | null;
   const banner = formData.get('banner') as File | null;
-  const galleryFiles = formData.getAll('galleryFiles') as File[];
-  const removeImageIds = JSON.parse(String(formData.get('removeImageIds') || '[]')) as string[];
+  const pdf = formData.get('pdf') as File | null;
 
-  const imageUpdates: Record<string, string> = {};
+  const mediaUpdates: Record<string, string | number | null> = {};
   if (cover && cover.size > 0)
-    imageUpdates.cover_image_url = await uploadImage(supabase, id, 'cover', cover);
+    mediaUpdates.cover_image_url = await uploadImage(supabase, id, 'cover', cover);
   if (banner && banner.size > 0)
-    imageUpdates.banner_image_url = await uploadImage(supabase, id, 'banner', banner);
-  if (Object.keys(imageUpdates).length > 0) {
-    await supabase.from('projects').update(imageUpdates).eq('id', id);
+    mediaUpdates.banner_image_url = await uploadImage(supabase, id, 'banner', banner);
+  if (pdf && pdf.size > 0) {
+    mediaUpdates.pdf_url = await uploadPdf(supabase, id, pdf);
+    const pdfMeta = parsePdfMeta(formData, 'pdf');
+    mediaUpdates.pdf_page_count = pdfMeta.pageCount ?? null;
+    mediaUpdates.pdf_page_aspect_ratio = pdfMeta.aspectRatio ?? null;
   }
-
-  if (removeImageIds.length > 0) {
-    await supabase.from('project_images').delete().in('id', removeImageIds.map(Number));
-  }
-  for (const file of galleryFiles) {
-    if (file.size === 0) continue;
-    const url = await uploadImage(supabase, id, 'gallery', file);
-    await supabase.from('project_images').insert({ project_id: id, image_url: url, position: 0 });
+  if (Object.keys(mediaUpdates).length > 0) {
+    await supabase.from('projects').update(mediaUpdates).eq('id', id);
   }
 
   await syncTagsAndLinks(supabase, id, formData);
@@ -224,7 +242,7 @@ export async function updateProject(
 
 async function deleteProjectStorage(projectId: number) {
   const client = createServiceRoleClient();
-  const folders = ['cover', 'banner', 'gallery'] as const;
+  const folders = ['cover', 'banner', 'pdf'] as const;
   const paths: string[] = [];
 
   for (const folder of folders) {

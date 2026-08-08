@@ -9,12 +9,6 @@ export type ProjectLink = {
   type: LinkType;
 };
 
-export type ProjectImage = {
-  id: string;
-  imageUrl: string;
-  position: number;
-};
-
 export type TagCategory = 'topic' | 'tool';
 
 export type Tag = {
@@ -36,9 +30,11 @@ export type Project = {
   descriptionEn: string;
   coverImageUrl: string;
   bannerImageUrl: string;
+  pdfUrl: string | null;
+  pdfPageCount: number | null;
+  pdfPageAspectRatio: number | null;
   position: number;
   published: boolean;
-  images: ProjectImage[];
   links: ProjectLink[];
   tags: Tag[];
 };

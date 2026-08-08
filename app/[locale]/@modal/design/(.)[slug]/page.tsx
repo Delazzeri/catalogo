@@ -1,7 +1,7 @@
 import { notFound } from 'next/navigation';
 import { AccentScope } from '@/components/AccentScope';
-import { Modal } from '@/components/Modal';
-import { ProjectDetail } from '@/components/ProjectDetail';
+import { PdfModal } from '@/components/PdfModal';
+import { PdfViewerLoader } from '@/components/PdfViewerLoader';
 import { getProjectBySlug } from '@/lib/data/projects';
 
 export default async function DesignProjectModal({
@@ -11,13 +11,13 @@ export default async function DesignProjectModal({
 }) {
   const { slug } = await params;
   const project = await getProjectBySlug(slug, 'design');
-  if (!project) notFound();
+  if (!project || !project.pdfUrl) notFound();
 
   return (
     <AccentScope section="design">
-      <Modal layoutId={`project-cover-${project.id}`}>
-        <ProjectDetail project={project} />
-      </Modal>
+      <PdfModal layoutId={`project-cover-${project.id}`}>
+        <PdfViewerLoader project={project} />
+      </PdfModal>
     </AccentScope>
   );
 }

@@ -25,23 +25,23 @@ export function ProjectCard({
   const hoverCapable = useHoverCapable();
   const title = pickLocale(project.titlePt, project.titleEn, locale);
   const toolTags = project.tags.filter((tag) => tag.category === 'tool');
+  const hasPdf = Boolean(project.pdfUrl);
 
-  return (
-    <Link
-      href={`/${section}/${project.slug}`}
-      className={
-        variant === 'row'
-          ? 'group relative block w-[220px] shrink-0 snap-start rounded-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-background sm:w-[260px]'
-          : 'group relative block rounded-[28px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-background'
-      }
-    >
+  const className =
+    variant === 'row'
+      ? 'group relative block w-[220px] shrink-0 snap-start rounded-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-background sm:w-[260px]'
+      : 'group relative block rounded-[28px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-background';
+
+  const content = (
+    <>
       <motion.div
         layoutId={enableLayoutAnimation ? `project-cover-${project.id}` : undefined}
         className={glassCard(
           'relative',
           variant === 'row' ? 'aspect-[2/3] rounded-2xl' : 'aspect-[4/3]',
+          !hasPdf && 'opacity-60',
         )}
-        whileHover={hoverCapable ? { scale: 1.035, y: -4 } : undefined}
+        whileHover={hoverCapable && hasPdf ? { scale: 1.035, y: -4 } : undefined}
         transition={{ type: 'spring', stiffness: 300, damping: 26 }}
         style={{ boxShadow: '0 1px 2px var(--shadow-color)' }}
       >
@@ -79,6 +79,20 @@ export function ProjectCard({
           )}
         </div>
       </motion.div>
+    </>
+  );
+
+  if (!hasPdf) {
+    return (
+      <div className={className} aria-disabled="true" tabIndex={-1}>
+        {content}
+      </div>
+    );
+  }
+
+  return (
+    <Link href={`/${section}/${project.slug}`} className={className}>
+      {content}
     </Link>
   );
 }

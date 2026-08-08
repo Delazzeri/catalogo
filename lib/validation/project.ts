@@ -29,3 +29,8 @@ export const newTagSchema = z.object({
 });
 
 export const newTagsArraySchema = z.array(newTagSchema);
+
+export const pdfMetaSchema = z.object({
+  pageCount: z.coerce.number().int().positive().optional(),
+  aspectRatio: z.coerce.number().positive().optional(),
+});

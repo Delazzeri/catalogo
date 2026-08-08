@@ -1,3 +1,7 @@
+# CLAUDE.md
+
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+
 ## Visão geral do projeto
 
 Site de portfólio pessoal com estética minimalista inspirada no design system do iOS 26 (glassmorphism sutil, transições fluidas, profundidade). O site alterna entre três visualizações de projetos:
@@ -115,3 +119,155 @@ Rascunho do schema — ajustar conforme necessário na implementação:
 - Não tratar `/all` como uma fonte de dados separada — é sempre a união de `design` + `code`.
 - Não renderizar dados de admin sem checagem de autenticação no servidor.
 - Não commitar chaves do Supabase ou segredos no repositório.
+
+## Desenvolvimento: Comandos e Setup
+
+### Scripts principais
+
+```bash
+npm run dev          # dev server (com --webpack, Turbopack tem bug de routing)
+npm run build        # production build
+npm run start        # run production build local
+npm run lint         # ESLint
+npm run typecheck    # tsc --noEmit (strict mode)
+npm run format       # Prettier (escreve arquivos)
+```
+
+### Primeiros passos
+
+1. Copiar `.env.example` → `.env.local` e preencher credenciais do Supabase
+2. `npm install`
+3. `npm run dev` → [http://localhost:3000](http://localhost:3000)
+
+> **Nota importante:** `npm run dev` força `--webpack` (em vez do Turbopack padrão) por causa de um bug reproduzível no Turbopack ao resolver interception routes com a estrutura `[locale]` + múltiplas rotas interceptadas no mesmo slot `@modal`. Confirmado que **não afeta production** (`next build && next start`). Revisar quando Turbopack for atualizado.
+
+## Arquitetura de dados e rotas
+
+### Padrão: Intercepting Routes + Parallel Routes (Instagram/Netflix-style)
+
+Toda rota `/[locale]/[seção]/[slug]` existe em **dois lugares**:
+- **`app/[locale]/[seção]/[slug]/page.tsx`** — renderiza a página completa (acesso direto via URL compartilhada, SEO, refresh)
+- **`app/[locale]/@modal/[seção]/(.)[slug]/page.tsx`** — mesmo conteúdo, mas como modal por cima do grid (clique no card, preserva scroll/contexto)
+
+Ambas compartilham `layoutId` via Framer Motion → transição suave card → modal. A rota modal usa `next/navigation` → `router.back()` ao fechar, levando volta ao grid.
+
+### Fluxo de dados
+
+```
+App Router (layout.tsx) renderiza:
+  - {children}       → grid da seção (design/code/all)
+  - {modal}          → slot parallel route, intercepta cliques
+```
+
+Nenhum client-side routing — tudo é Next.js routing nativo. `getProjectBySlug` é cached com `React.cache` → mesmo projeto é fetched uma única vez por request, quer seja renderizado na página ou no modal.
+
+### Exemplo: Adicionar um novo link type
+
+1. **Schema (Supabase):** nova migration que altera o enum `link_type`:
+   ```sql
+   alter type public.link_type add value 'new_type' after 'other';
+   ```
+   (sem DROP/RECREATE — Postgres permite adicionar ao enum)
+
+2. **Tipo TypeScript (`lib/types.ts`):** atualizar `type LinkType = 'github' | 'vercel' | ... | 'new_type'`
+
+3. **i18n (`messages/pt.json`, `messages/en.json`):** adicionar chave em `Links` → `"new_type": "Rótulo"`
+
+4. **Form admin (`components/admin/LinksEditor.tsx`):** tipo é dropdown automático a partir do type, não precisa mudar
+
+5. **Renderização pública (`ProjectDetail.tsx`):** link é renderizado dinamicamente, nenhuma mudança necessária
+
+**Não há colunas fixas** no `projects` — tudo vai por `project_links`, que é 1:N e flexível.
+
+## Server Actions e Validação
+
+### Padrão de Server Action (Projects, Hero Slides, Tags)
+
+Localizado em `lib/actions/[feature].ts`, segue um padrão consistente:
+
+1. **Validação (Zod):** em `lib/validation/[feature].ts` (ex: `projectFieldsSchema`)
+2. **Action com `useActionState`:**
+   ```typescript
+   export async function createProject(locale: AppLocale, prevState, formData) {
+     // parse + validate com zod
+     // supabase.from('projects').insert(...)
+     // revalidate paths
+     // redirect ou return error
+   }
+   ```
+3. **Componentes usam `useActionState`** (client) + `formAction` prop
+4. **Erros são returned como `{ error: string }`** — UI mostra no form
+
+Não usamos `server-only` porque a maioria dos patterns já é server-safe por natureza (Server Actions rodam no servidor).
+
+### Uploads de mídia (Supabase Storage)
+
+Padrão em `lib/actions/hero-slides.ts` (reutilizar como template):
+
+```typescript
+async function uploadMedia(supabase, pathPrefix, file) {
+  const path = `hero/${pathPrefix}/${Date.now()}-${file.name}`;
+  const { data, error } = await supabase.storage
+    .from('project-media')
+    .upload(path, file, { upsert: false });
+  if (error) throw error;
+  return supabase.storage
+    .from('project-media')
+    .getPublicUrl(path).data.publicUrl;
+}
+```
+
+**Prefixo de caminho:** `'new'` ao criar (depois renomear se precisar), `String(id)` ao editar.
+
+Cleanup ao deletar: usar `createServiceRoleClient()` (chave service-role do env) para `remove()` sem checar RLS.
+
+## Row Level Security (RLS)
+
+Autenticação verdadeira: RLS policies em `proxy.ts` (middleware) **e** novamente nos dados (defense-in-depth).
+
+**Admin email:** hardcoded em `proxy.ts` e no RLS da tabela. Muda via `.env` → `ADMIN_EMAIL`.
+
+Todas as policies checam:
+```sql
+(select auth.jwt() ->> 'email') = 'dudu.delazeri@gmail.com'
+```
+
+Isso significa: **não há backdoor via API direta** — admin RLS é o escudo principal, não uma camada de UI.
+
+## Estrutura de componentes
+
+### Server vs Client (prefer Server Components)
+
+- **Server:** `ProjectCard`, `ProjectDetail`, `ProjectGallery` (leem dados)
+- **Client:** `Modal` (Framer Motion, state, keyboard events), `ProjectForm` (useActionState, form inputs), `HeroCarousel` (animações)
+
+Marcar `'use client'` apenas quando:
+- precisa de hooks (`useState`, `useActionState`, `useRouter`)
+- precisa de Framer Motion (shared layoutId)
+- precisa de event listeners (keyboard, intersection)
+
+### Localizações (i18n)
+
+Use `pickLocale(pt, en, locale)` para renderizar o texto certo. Componentes Server usam `getLocale()`, componentes Client usam `useLocale()`.
+
+Fallback automático: se `titleEn` estiver vazio, pode fallback pra `titlePt`.
+
+## Tags: Topic vs Tool
+
+**Topic tags** (seção, ex: "UI Design", "React"):
+- Criação inline no formulário de projeto (sem biblioteca prévia)
+- Renderizadas como pills de texto
+
+**Tool tags** (ferramentas, ex: "Figma", "TypeScript"):
+- Biblioteca pré-cadastrada em `/admin/tools` com upload de ícone (`icon_url`)
+- Seleção (toggle) no formulário de projeto, sem criação inline
+- Renderizadas como ícones apenas (sem texto ao lado)
+
+Schema: single `tags` table com coluna `category` (`'topic'` | `'tool'`), `icon_url` nullable.
+
+## Debugging Notes
+
+- **Dev server com webpack:** atalhos Turbopack não funcionam, use ESC para sair ou mudar `next.config.js`
+- **Migrations:** aplicar via Supabase CLI local (`supabase migration up`) ou MCP (`apply_migration`)
+- **RLS pode bloquear queries:** se uma query admin retorna vazio, checklist de RLS policies
+- **Next 16 interception routes:** se modalão não abre, checklist: `(@modal/...)` tem `(.)[slug]/page.tsx`? Slug param está correto?
